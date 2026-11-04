@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>知研 · Insight-agent</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css" />
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+  <div id="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">知</div>
+        <div>
+          <div class="brand-name">知研</div>
+          <div class="brand-sub">Insight-agent</div>
+        </div>
+      </div>
+
+      <nav class="main-nav">
+        <button class="nav-item active" data-view="chat"><span>◍</span>对话</button>
+        <button class="nav-item" data-view="kb"><span>▤</span>知识库</button>
+        <button class="nav-item" data-view="memory"><span>◈</span>记忆</button>
+        <button class="nav-item" data-view="settings"><span>⚙</span>设置</button>
+      </nav>
+
+      <div class="session-section">
+        <div class="session-head">
+          <span>最近对话</span>
+          <button id="new-session-btn" class="icon-btn" title="新对话">＋</button>
+        </div>
+        <div id="session-list" class="session-list"></div>
+      </div>
+
+      <div class="sidebar-foot">
+        <span id="health-dot" class="health-dot"></span>
+        <span>本机 · 127.0.0.1</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- 对话 -->
+      <section id="view-chat" class="view active">
+        <header class="view-header chat-header">
+          <div class="view-title">
+            <h1 id="chat-title">新对话</h1>
+            <p class="subtle" id="chat-subtitle">选中知识库后提问，回答会带引用</p>
+          </div>
+          <div class="chat-controls">
+            <div class="dropdown" id="kb-dropdown">
+              <button class="control-btn" id="kb-btn">知识库 <span id="kb-count" class="pill">0</span></button>
+              <div class="dropdown-panel" id="kb-panel"></div>
+            </div>
+            <label class="switch" title="开启后检索知识库">
+              <input type="checkbox" id="rag-toggle" checked />
+              <span>RAG</span>
+            </label>
+            <label class="switch" title="开启后每轮自动提取长期记忆">
+              <input type="checkbox" id="memory-toggle" checked />
+              <span>记忆</span>
+            </label>
+            <select id="retrieval-mode" class="control-select" title="检索模式">
+              <option value="hybrid">混合检索</option>
+              <option value="dense">密集检索</option>
+              <option value="sparse">稀疏检索</option>
+            </select>
+          </div>
+        </header>
+
+        <div class="chat-body">
+          <div id="messages" class="messages">
+            <div class="empty-chat" id="chat-empty">
+              <div class="empty-glyph">知</div>
+              <h2>今天想弄懂什么？</h2>
+              <p>上传讲义、论文或笔记，知研会带着引用回答，并在对话中记住你的学习状态。</p>
+              <div class="starter-grid">
+                <button class="starter" data-starter="帮我梳理这份讲义的核心脉络">梳理讲义脉络</button>
+                <button class="starter" data-starter="根据我的薄弱点，先复习什么？">按薄弱点复习</button>
+                <button class="starter" data-starter="用例子解释这个概念，再给定义">先例子后定义</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <footer class="composer">
+          <div class="composer-box">
+            <textarea id="composer-input" rows="1" placeholder="问点什么…（Enter 发送，Shift+Enter 换行）"></textarea>
+            <div class="composer-actions">
+              <button id="stop-btn" class="ghost-btn hidden">停止</button>
+              <button id="send-btn" class="primary-btn">发送</button>
+            </div>
+          </div>
+          <div class="composer-hint">AI 可能出错，重要结论请对照来源。引用编号可点击查看原文。</div>
+        </footer>
+      </section>
+
+      <!-- 知识库 -->
+      <section id="view-kb" class="view">
+        <header class="view-header">
+          <div class="view-title">
+            <h1>知识库</h1>
+            <p class="subtle">按科目或资料类型分开管理；每个知识库独立检索。</p>
+          </div>
+          <button id="create-kb-btn" class="primary-btn">＋ 新建知识库</button>
+        </header>
+
+        <div class="kb-layout">
+          <aside class="kb-list" id="kb-list"></aside>
+          <div class="kb-detail">
+            <div id="kb-empty" class="empty-state">
+              <div class="empty-glyph">▤</div>
+              <h2>还没有选择知识库</h2>
+              <p>新建一个“线性代数”或“机器学习”，然后上传资料。</p>
+            </div>
+
+            <div id="kb-detail-panel" class="hidden">
+              <div class="kb-panel-head">
+                <div>
+                  <h2 id="kb-name"></h2>
+                  <p id="kb-desc" class="subtle"></p>
+                </div>
+                <button id="delete-kb-btn" class="danger-ghost">删除知识库</button>
+              </div>
+
+              <div class="upload-card">
+                <div class="card-head">
+                  <h3>上传文档</h3>
+                  <span class="subtle">docx · md · html · pdf</span>
+                </div>
+                <div id="dropzone" class="dropzone">
+                  <strong>拖拽文件到这里</strong>
+                  <span>或点击选择，可多选</span>
+                  <input type="file" id="file-input" multiple accept=".docx,.md,.markdown,.html,.htm,.pdf" hidden />
+                </div>
+                <div id="file-list" class="file-list"></div>
+
+                <details class="config-details" open>
+                  <summary>分块设置</summary>
+                  <div class="config-grid">
+                    <label class="field">
+                      <span>分块策略</span>
+                      <select id="chunk-strategy">
+                        <option value="recursive">递归字符（推荐）</option>
+                        <option value="fixed">固定大小</option>
+                        <option value="semantic">语义分块</option>
+                        <option value="structure">文档结构</option>
+                        <option value="ai">AI 分块</option>
+                      </select>
+                    </label>
+                    <label class="field">
+                      <span>块大小（字符）</span>
+                      <input id="chunk-size" type="number" min="100" max="4096" step="50" value="700" />
+                    </label>
+                    <label class="field">
+                      <span>重叠（字符）</span>
+                      <input id="chunk-overlap" type="number" min="0" max="500" step="10" value="70" />
+                    </label>
+                    <label class="field">
+                      <span>父块大小（字符）</span>
+                      <input id="parent-size" type="number" min="800" max="4096" step="100" value="1600" />
+                    </label>
+                    <label class="field checkbox-field">
+                      <input id="parent-child" type="checkbox" />
+                      <span>启用父子分块（检索子块，展开父块）</span>
+                    </label>
+                    <label class="field" id="semantic-field">
+                      <span>语义断点百分位</span>
+                      <input id="semantic-percentile" type="number" min="50" max="99" value="90" />
+                    </label>
+                    <label class="field full" id="ai-field">
+                      <span>AI 分块要求</span>
+                      <textarea id="ai-instructions" rows="2" placeholder="例如：按定理/证明/例题分组，每块保持一个完整论证"></textarea>
+                    </label>
+                  </div>
+                  <p class="subtle" id="chunk-hint">递归分块：先按段落，再按句子，适合大多数中文讲义。</p>
+                </details>
+
+                <div class="upload-actions">
+                  <button id="upload-btn" class="primary-btn">开始上传并索引</button>
+                  <span class="subtle">CPU 嵌入较慢；扫描 PDF 会自动 OCR，公式识别可能不准确。</span>
+                </div>
+              </div>
+
+              <div class="doc-table-wrap">
+                <table class="doc-table">
+                  <thead>
+                    <tr>
+                      <th>文件</th>
+                      <th>状态</th>
+                      <th>块数</th>
+                      <th>大小</th>
+                      <th>时间</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="doc-list"></tbody>
+                </table>
+                <div id="doc-empty" class="subtle doc-empty">还没有文档，上传第一份资料吧。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 记忆 -->
+      <section id="view-memory" class="view">
+        <header class="view-header">
+          <div class="view-title">
+            <h1>长期记忆</h1>
+            <p class="subtle">知研在对话中自动提取的学习状态。记错了就删掉。</p>
+          </div>
+          <button id="memory-refresh" class="ghost-btn">刷新</button>
+        </header>
+
+        <div class="memory-toolbar">
+          <div class="tabs" id="memory-tabs">
+            <button class="tab active" data-category="all">全部</button>
+            <button class="tab" data-category="learning_goal">目标</button>
+            <button class="tab" data-category="weak_point">薄弱点</button>
+            <button class="tab" data-category="mastered_concept">已掌握</button>
+            <button class="tab" data-category="cognitive_preference">偏好</button>
+            <button class="tab" data-category="progress_state">进度</button>
+            <button class="tab" data-category="baseline_fact">背景</button>
+          </div>
+          <input id="memory-search" class="search-input" type="search" placeholder="搜索记忆…" />
+        </div>
+
+        <div id="memory-list" class="memory-list"></div>
+        <div id="memory-empty" class="empty-state hidden">
+          <div class="empty-glyph">◈</div>
+          <h2>还没有记忆</h2>
+          <p>聊几轮后，考试时间、薄弱点、解释偏好会自动出现在这里。</p>
+        </div>
+      </section>
+
+      <!-- 设置 -->
+      <section id="view-settings" class="view">
+        <header class="view-header">
+          <div class="view-title">
+            <h1>设置与健康</h1>
+            <p class="subtle">确认每个外部服务是否可用；密钥只显示“已配置”。</p>
+          </div>
+          <button id="check-services" class="primary-btn">检查服务</button>
+        </header>
+
+        <div id="health-grid" class="health-grid"></div>
+
+        <div class="settings-card">
+          <div class="card-head">
+            <h3>当前配置</h3>
+            <span class="subtle">只读，修改请编辑 .env</span>
+          </div>
+          <dl id="config-list" class="config-list"></dl>
+        </div>
+
+        <div class="settings-card">
+          <div class="card-head">
+            <h3>维护</h3>
+          </div>
+          <div class="maintenance-actions">
+            <button id="init-milvus" class="ghost-btn">初始化 / 检查 Milvus 集合</button>
+            <button id="reload-config" class="ghost-btn">重新读取配置</button>
+          </div>
+          <p class="subtle">如果上传后一直失败，先点“初始化 / 检查 Milvus 集合”。</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+  <div id="modal-root"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.9.0/highlight.min.js"></script>
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>
