@@ -25,7 +25,7 @@
 
 ```bash
 git clone https://github.com/SevensideRose/insight-agent.git
-cd Insight-agent
+cd insight-agent
 
 python -m venv .venv
 

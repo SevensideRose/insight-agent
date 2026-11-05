@@ -4,6 +4,7 @@ import {
   $,
   $$,
   closeModal,
+  confirmDialog,
   escapeHtml,
   formatTime,
   openModal,
@@ -120,15 +121,29 @@ function renderSessionList() {
     const del = document.createElement("button");
     del.className = "session-del";
     del.type = "button";
-    del.title = "删除会话";
-    del.textContent = "×";
+    del.title = "删除对话";
+    del.setAttribute("aria-label", "删除对话");
+    del.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none"
+      stroke="currentColor" stroke-width="2" stroke-linecap="round"
+      stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>`;
     del.addEventListener("click", async (event) => {
       event.stopPropagation();
-      if (!window.confirm(`删除会话“${session.title}”？消息将一并删除。`)) return;
+      const confirmed = await confirmDialog(
+        `删除对话“${session.title || "新对话"}”？消息将一并删除。`,
+        { danger: true, confirmText: "删除" }
+      );
+      if (!confirmed) return;
       try {
         await api.del(`/api/sessions/${session.id}`);
         if (currentSessionId === session.id) newSession();
         await refreshSessions();
+        toast("对话已删除", { type: "success" });
       } catch (error) {
         toast(error.message, { type: "error" });
       }
